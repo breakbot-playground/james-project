@@ -35,6 +35,7 @@ import reactor.core.publisher.Mono;
 
 @ExtendWith(BrokerExtension.class)
 class ActiveMQHealthCheckTest {
+
     private ActiveMQHealthCheck testee;
     private BrokerService broker;
 

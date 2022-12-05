@@ -17,16 +17,25 @@
  * under the License.                                           *
  ****************************************************************/
 
-package org.apache.james.metrics.api;
+package org.apache.james.queue.activemq.metric;
 
-public class NoopGaugeRegistry implements GaugeRegistry {
+import org.apache.james.queue.api.MailQueueName;
+
+public class ActiveMQMetricCollectorNoop implements ActiveMQMetricCollector {
+
     @Override
-    public <T> GaugeRegistry register(String name, Gauge<T> gauge) {
-        return this;
+    public void start() {
     }
 
     @Override
-    public <T> SettableGauge<T> settableGauge(String name) {
-        return t -> { };
+    public void stop() {
+    }
+
+    @Override
+    public void collectBrokerStatistics() {
+    }
+
+    @Override
+    public void collectQueueStatistics(MailQueueName name) {
     }
 }

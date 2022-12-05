@@ -16,17 +16,29 @@
  * specific language governing permissions and limitations      *
  * under the License.                                           *
  ****************************************************************/
+package org.apache.james.queue.activemq;
 
-package org.apache.james.metrics.api;
+import org.apache.commons.configuration2.BaseConfiguration;
+import org.apache.commons.configuration2.Configuration;
+import org.apache.james.queue.activemq.metric.ActiveMQMetricConfiguration;
 
-public class NoopGaugeRegistry implements GaugeRegistry {
-    @Override
-    public <T> GaugeRegistry register(String name, Gauge<T> gauge) {
-        return this;
+public class ActiveMQConfiguration {
+
+    private final ActiveMQMetricConfiguration metricConfiguration;
+
+    public static ActiveMQConfiguration getDefault() {
+        return from(new BaseConfiguration());
     }
 
-    @Override
-    public <T> SettableGauge<T> settableGauge(String name) {
-        return t -> { };
+    public static ActiveMQConfiguration from(Configuration configuration) {
+        return new ActiveMQConfiguration(ActiveMQMetricConfiguration.from(configuration));
+    }
+
+    private ActiveMQConfiguration(ActiveMQMetricConfiguration metricConfiguration) {
+        this.metricConfiguration = metricConfiguration;
+    }
+
+    public ActiveMQMetricConfiguration getMetricConfiguration() {
+        return metricConfiguration;
     }
 }

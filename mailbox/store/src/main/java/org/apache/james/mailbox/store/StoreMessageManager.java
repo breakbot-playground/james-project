@@ -19,6 +19,7 @@
 
 package org.apache.james.mailbox.store;
 
+import static org.apache.james.mailbox.events.MailboxEvents.Added.IS_DELIVERY;
 import static org.apache.james.mailbox.extension.PreDeletionHook.DeleteOperation;
 import static org.apache.james.mailbox.store.mail.AbstractMessageMapper.UNLIMITED;
 import static org.apache.james.util.ReactorUtils.DEFAULT_CONCURRENCY;
@@ -326,7 +327,8 @@ public class StoreMessageManager implements MessageManager {
             session,
             appendCommand.isRecent(),
             appendCommand.getFlags(),
-            appendCommand.getMaybeParsedMessage()));
+            appendCommand.getMaybeParsedMessage(),
+            appendCommand.isDelivery()));
     }
 
     @Override
@@ -337,7 +339,8 @@ public class StoreMessageManager implements MessageManager {
             session,
             appendCommand.isRecent(),
             appendCommand.getFlags(),
-            appendCommand.getMaybeParsedMessage());
+            appendCommand.getMaybeParsedMessage(),
+            appendCommand.isDelivery());
     }
 
     @Override
@@ -378,7 +381,7 @@ public class StoreMessageManager implements MessageManager {
                             return finalFile.length();
                         }
                     }, propertyBuilder,
-                    getFlags(mailboxSession, isRecent, flagsToBeSet), bodyStartOctet, unparsedMimeMessqage, headers));
+                    getFlags(mailboxSession, isRecent, flagsToBeSet), bodyStartOctet, unparsedMimeMessqage, headers, !IS_DELIVERY));
             }
         } catch (IOException | MimeException e) {
             throw new MailboxException("Unable to parse message", e);
@@ -394,7 +397,8 @@ public class StoreMessageManager implements MessageManager {
         }
     }
 
-    private Mono<AppendResult> appendMessage(Content msgIn, Date internalDate, final MailboxSession mailboxSession, boolean isRecent, Flags flagsToBeSet, Optional<Message> maybeMessage) {
+    private Mono<AppendResult> appendMessage(Content msgIn, Date internalDate, final MailboxSession mailboxSession, boolean isRecent, Flags flagsToBeSet,
+                                             Optional<Message> maybeMessage, boolean isDelivery) {
         return Mono.fromCallable(() -> {
             if (!isWriteable(mailboxSession)) {
                 throw new ReadOnlyException(getMailboxPath());
@@ -410,7 +414,7 @@ public class StoreMessageManager implements MessageManager {
 
                 return createAndDispatchMessage(computeInternalDate(internalDate),
                     mailboxSession, msgIn, propertyBuilder,
-                    getFlags(mailboxSession, isRecent, flagsToBeSet), bodyStartOctet, maybeMessage, headers);
+                    getFlags(mailboxSession, isRecent, flagsToBeSet), bodyStartOctet, maybeMessage, headers, isDelivery);
             } catch (IOException | MimeException e) {
                 throw new MailboxException("Unable to parse message", e);
             }
@@ -512,7 +516,9 @@ public class StoreMessageManager implements MessageManager {
         return bodyStartOctet;
     }
 
-    private Mono<AppendResult> createAndDispatchMessage(Date internalDate, MailboxSession mailboxSession, Content content, PropertyBuilder propertyBuilder, Flags flags, int bodyStartOctet, Optional<Message> maybeMessage, HeaderImpl headers) throws MailboxException {
+    private Mono<AppendResult> createAndDispatchMessage(Date internalDate, MailboxSession mailboxSession, Content content, PropertyBuilder propertyBuilder,
+                                                        Flags flags, int bodyStartOctet, Optional<Message> maybeMessage, HeaderImpl headers,
+                                                        boolean isDelivery) throws MailboxException {
         int size = (int) content.size();
         QuotaRoot quotaRoot = quotaRootResolver.getQuotaRoot(mailbox);
         return Mono.from(quotaManager.getQuotasReactive(quotaRoot))
@@ -525,6 +531,7 @@ public class StoreMessageManager implements MessageManager {
                             .mailboxSession(mailboxSession)
                             .mailbox(mailbox)
                             .addMetaData(data.getLeft())
+                            .isDelivery(isDelivery)
                             .build(),
                         new MailboxIdRegistrationKey(mailbox.getMailboxId()))
                         .thenReturn(computeAppendResult(data, mailbox))),
@@ -906,6 +913,7 @@ public class StoreMessageManager implements MessageManager {
                             .mailboxSession(session)
                             .mailbox(to.getMailboxEntity())
                             .metaData(copiedUids)
+                            .isDelivery(!IS_DELIVERY)
                             .build(),
                         new MailboxIdRegistrationKey(to.getMailboxEntity().getMailboxId())),
                     eventBus.dispatch(EventFactory.moved()
@@ -940,6 +948,7 @@ public class StoreMessageManager implements MessageManager {
                             .mailboxSession(session)
                             .mailbox(to.getMailboxEntity())
                             .metaData(moveUids)
+                            .isDelivery(!IS_DELIVERY)
                             .build(),
                         new MailboxIdRegistrationKey(to.getMailboxEntity().getMailboxId())),
                     eventBus.dispatch(EventFactory.expunged()

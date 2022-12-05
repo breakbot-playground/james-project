@@ -54,14 +54,19 @@ public class ActiveMQHealthCheck implements HealthCheck {
         return Mono.fromCallable(() -> {
             try {
                 Connection connection = connectionFactory.createConnection();
-                Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
-                session.close();
+                try {
+                    Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+                    session.close();
+                } finally {
+                    connection.close();
+                }
                 return Result.healthy(COMPONENT_NAME);
             } catch (Exception e) {
                 LOGGER.warn("{} is unhealthy. {}", COMPONENT_NAME.getName(), e.getMessage());
-                return Result.unhealthy(COMPONENT_NAME, e.getMessage());
+                return Result.unhealthy(COMPONENT_NAME, e.toString(), e);
             }
         }).subscribeOn(Schedulers.boundedElastic());
     }
+
 }
 
